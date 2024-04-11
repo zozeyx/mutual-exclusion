@@ -1,61 +1,43 @@
-#include <semaphore.h>
-#include <pthread.h>
 #include <stdio.h>
+#include <pthread.h>
+#include <semaphore.h>
 
-sem_t semaphore;
-int critical_section = 1;
+#define NUM_THREADS 4
 
-void *func0(void *arg) {
-    sem_wait(&semaphore);
-    while(critical_section != 1){}
-    for(int i = 0; i < 25; i++){
-        printf("thread 0 : %d\n", critical_section * 3); critical_section++;
+int N = 100;
+sem_t semaphore; // 세마포어 변수
+
+void *thread_func(void *arg) {
+    int thread_id = *(int *)arg; //스레드 아이디 지정
+
+    int start = (N / NUM_THREADS) * thread_id + 1; // 스레드마다 시작 넘버 지정
+    int end = (N / NUM_THREADS) * (thread_id + 1); // 스레드마다 끝 넘버 지정
+
+    for (int i = start; i <= end; ++i) {
+        sem_wait(&semaphore); // 세마포어 값이 양수일때까지 기다렸다가 양수이면 진입
+        printf("Thread %d: %d\n", thread_id +1 ,i * 3); // critical section
+        sem_post(&semaphore); // 임계 구역을 벗어나면 세마포어 값을 증가시켜 다른 스레드가 임계 구역에 진입할 수 있도록 함
     }
-    sem_post(&semaphore);
-    pthread_exit(NULL);
+
+    return NULL;
 }
-void *func1(void *arg) {
-    sem_wait(&semaphore);
-    while(critical_section != 26){}
-    for(int i = 0; i < 25; i++){
-        printf("thread 1 : %d\n", critical_section * 3); critical_section++;
-    }
-    sem_post(&semaphore);
-    pthread_exit(NULL);
-}
-void *func2(void *arg) {
-    sem_wait(&semaphore);
-    while(critical_section != 51){}
-    for(int i = 0; i < 25; i++){
-        printf("thread 2 : %d\n", critical_section * 3); critical_section++;
-    }
-    sem_post(&semaphore);
-    pthread_exit(NULL);
-}
-void *func3(void *arg) {
-    sem_wait(&semaphore);
-    while(critical_section != 76){}
-    for(int i = 0; i < 25; i++){
-        printf("thread 3 : %d\n", critical_section * 3); critical_section++;
-    }
-    sem_post(&semaphore);
-    pthread_exit(NULL);
-}
-int main(){
-    pthread_t tid0, tid1, tid2, tid3;
-    sem_init(&semaphore, 0, 1); // 세마포 초기값은 1로 설정
+
+int main() {
+    pthread_t threads[NUM_THREADS];
+    int thread_ids[NUM_THREADS];
     
-    pthread_create(&tid0, NULL, func0, NULL);
-    pthread_create(&tid1, NULL, func1, NULL);
-    pthread_create(&tid2, NULL, func2, NULL);
-    pthread_create(&tid3, NULL, func3, NULL);
+    sem_init(&semaphore, 0, 1); // 세마포어를 초기화하고 초기값은 1로 설정
+
+    for (int i = 0; i < NUM_THREADS; ++i) {
+        thread_ids[i] = i;
+        pthread_create(&threads[i], NULL, thread_func, &thread_ids[i]);
+    }
+
+    for (int i = 0; i < NUM_THREADS; ++i) {
+        pthread_join(threads[i], NULL);
+    }
     
-    pthread_join(tid0, NULL);
-    pthread_join(tid1, NULL);
-    pthread_join(tid2, NULL);
-    pthread_join(tid3, NULL);
-    
-    sem_destroy(&semaphore);
+    sem_destroy(&semaphore); // 세마포어 해제
 
     return 0;
 }
